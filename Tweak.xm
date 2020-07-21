@@ -1,71 +1,7 @@
-#include <Preferences/PSSpecifier.h>
-#include <Preferences/PSTableCell.h>
-#include <Preferences/PSViewController.h>
-#include <Preferences/PSListController.h>
-
-@interface PSSpecifier (PreferenceLoader)
-- (void)setupIconImageWithBundle:(NSBundle *)bundle;
-- (void)pl_setupIcon;
-@end
-
-@interface PSUIPrefsListController : PSListController
-- (void)lazyLoadBundle:(PSSpecifier *)sender;
-@end
-
-@interface UIImage (Private)
-+ (instancetype)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
-@end
-
-NSDictionary *dictionaryWithFile(NSString *path) {
-  if (@available(iOS 11, *)) return [NSDictionary dictionaryWithContentsOfURL:[NSURL fileURLWithPath:path] error:nil];
-  return [NSDictionary dictionaryWithContentsOfFile:path];
-}
-
-@interface SimpleBundleController : PSListController
-@end
-
-@implementation SimpleBundleController
-
-- (NSBundle *)bundle {
-  return [NSBundle bundleWithPath:[[self.specifier propertyForKey:@"pl_simpleBundlePlistPath"] stringByDeletingLastPathComponent]];
-}
-
-- (void)viewDidAppear:(BOOL)didAppear {
-  [super viewDidAppear:didAppear];
-  NSString *title = dictionaryWithFile([self.specifier propertyForKey:@"pl_simpleBundlePlistPath"])[@"title"] ? : self.specifier.name;
-  self.title = [[self bundle] localizedStringForKey:title value:title table:nil];
-}
-
-- (NSDictionary *)localizedDictionaryForDictionary:(NSDictionary *)dict {
-  NSMutableDictionary *newDict = [NSMutableDictionary new];
-	for (NSString *key in dict) {
-	   NSString *value = [dict objectForKey:key];
-		[newDict setObject:[[self bundle] localizedStringForKey:value value:value table:nil] forKey:key];
-  }
-  return newDict;
-}
-
-- (NSArray *)specifiers {
-	if (!_specifiers) {
-    NSString *plistName = [[[self.specifier propertyForKey:@"pl_simpleBundlePlistPath"] lastPathComponent] stringByDeletingPathExtension];
-    NSMutableArray *specs = [[self loadSpecifiersFromPlistName:plistName target:self] mutableCopy];
-    // TODO check iphonedevwiki ALL keys for those with string type value and add appropiate to localize ones here
-    NSArray *localizableKeys = @[@"label", @"value", @"headerDetailText", @"placeholder", @"staticTextMessage"];
-    for (PSSpecifier *specifier in specs) {
-      for (NSString *key in specifier.properties.allKeys) {
-        NSString *value = [specifier propertyForKey:key];
-        if ([localizableKeys containsObject:key]) [specifier setProperty:[[self bundle] localizedStringForKey:value value:value table:nil] forKey:key];
-      }
-      specifier.name = [specifier propertyForKey:@"label"];
-      if (specifier.titleDictionary) specifier.titleDictionary = [self localizedDictionaryForDictionary:specifier.titleDictionary];
-      if (specifier.shortTitleDictionary) specifier.shortTitleDictionary = [self localizedDictionaryForDictionary:specifier.shortTitleDictionary];
-    }
-    _specifiers = [specs copy];
-  }
-	return _specifiers;
-}
-
-@end
+#import "Headers/PSSpecifier.h"
+#import "Headers/PSUIPrefsListController.h"
+#import "SimpleBundleController.h"
+#import "NSDictionary+Path.h"
 
 %hook PSUIPrefsListController
 
@@ -85,12 +21,12 @@ NSDictionary *dictionaryWithFile(NSString *path) {
       for (NSString *newFile in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:nil]) {
         if (![newFile.pathExtension isEqualToString:@"plist"]) continue;
         NSString *newPath = [path stringByAppendingPathComponent:newFile];
-        entry = dictionaryWithFile(newPath)[@"entry"];
+        entry = [NSDictionary dictionaryWithFile:newPath][@"entry"];
         if (entry && entry.count) path = newPath;
       }
-    } else entry = dictionaryWithFile(path)[@"entry"];
+    } else entry = [NSDictionary dictionaryWithFile:path][@"entry"];
     if (!entry) continue;
-    if (dictionaryWithFile(path)[@"items"]) isSimple = YES;
+    if ([NSDictionary dictionaryWithFile:path][@"items"]) isSimple = YES;
     if (entry[@"pl_filter"]) {
       NSArray *versions = [entry[@"pl_filter"] objectForKey:@"CoreFoundationVersion"];
       BOOL pass = NO;
@@ -160,34 +96,6 @@ NSDictionary *dictionaryWithFile(NSString *path) {
 - (void)pl_loadSimpleBundle:(PSSpecifier *)sender {
   [self lazyLoadBundle:sender];
   MSHookIvar<Class>(sender, "detailControllerClass") = [SimpleBundleController class];
-}
-
-%end
-
-%hook PSViewController
-
-- (NSString *)title {
-  return (!%orig || %orig.length == 0) ? self.specifier.name : %orig;
-}
-
-%end
-
-%hook PSSpecifier
-
-%new
-- (void)pl_setupIcon {
-  if (NSBundle *bundle = [NSBundle bundleWithPath:[self propertyForKey:@"lazy-bundle"]]) [self setupIconImageWithBundle:bundle];
-  UIImage *icon = [self propertyForKey:@"iconImage"] ? : [UIImage imageWithContentsOfFile:@"/Library/PreferenceLoader/Default.png"];
-  if (!icon) return;
-  UIGraphicsBeginImageContextWithOptions(CGSizeMake(29, 29), NO, [UIScreen mainScreen].scale);
-  CGRect iconRect = CGRectMake(0, 0, 29, 29);
-  NSBundle *mobileIconsBundle = [NSBundle bundleWithIdentifier:@"com.apple.mobileicons.framework"];
-  UIImage *mask = [UIImage imageNamed:@"TableIconMask" inBundle:mobileIconsBundle];
-  if (mask) CGContextClipToMask(UIGraphicsGetCurrentContext(), iconRect, mask.CGImage);
-  [icon drawInRect:iconRect];
-  icon = UIGraphicsGetImageFromCurrentImageContext();
-  UIGraphicsEndImageContext();
-  [self setProperty:icon forKey:@"iconImage"];
 }
 
 %end

@@ -9,7 +9,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = PreferenceLoader
 
-PreferenceLoader_FILES = Tweak.xm
+PreferenceLoader_FILES = Tweak.xm PSViewController.x PSSpecifier.x SimpleBundleController.m NSDictionary+Path.m
 PreferenceLoader_CFLAGS = -fobjc-arc
 PreferenceLoader_PRIVATE_FRAMEWORKS = Preferences
 
