@@ -3,7 +3,7 @@ Name: PreferenceLoader
 Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: PreferenceLoader replacement that's like 5 times smaller
+Description: A lightweight and modern alternative to Dustin Howett's PreferenceLoader.
 Maintainer: ArtikusHG
 Author: ArtikusHG
 Section: Tweaks
