@@ -1,6 +1,6 @@
 INSTALL_TARGET_PROCESSES = Preferences
 
-ARCHS = arm64
+ARCHS = armv7 arm64 arm64e
 THEOS_DEVICE_IP = 192.168.0.18
 
 TARGET = iphone:clang:latest:7.0
