@@ -1,0 +1,12 @@
+Package: com.artikus.preferenceloader
+Name: PreferenceLoader
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: PreferenceLoader replacement that's like 5 times smaller
+Maintainer: ArtikusHG
+Author: ArtikusHG
+Section: Tweaks
+Replaces: preferenceloader
+Provides: preferenceloader (= 2.2.4)
+Conflicts: preferenceloader
