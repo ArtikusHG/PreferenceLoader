@@ -18,7 +18,7 @@ This is a PreferenceLoader alternative I started off for fun and knowledge, but 
 
 - Provides source code that will be kept maintained unless the project dies out
 
-- Masks icons and has a default icon for bundles which don't provide one
+- Masks icons and has a default icon for bundles which don't provide one (btw, icon made by [@Xeviks](https://twitter.com/Xeviks))
 
 - Provides more elegant error handling, with an alert displayed instead of a bundle with the error text
 
