@@ -14,7 +14,7 @@ This is a PreferenceLoader alternative I started off for fun and knowledge, but 
 
 # How is this project different
 
-- Barely hooks anything beside ```- (NSArray *)specifiers```
+- Barely hooks anything besides ```- (NSArray *)specifiers```
 
 - Provides source code that will be kept maintained unless the project dies out
 
