@@ -2,6 +2,8 @@
 #include <Preferences/PSTableCell.h>
 #include <Preferences/PSViewController.h>
 #include <Preferences/PSListController.h>
+#include <substrate.h>
+#include "prefs.h"
 
 @interface PSSpecifier (PreferenceLoader)
 - (void)setupIconImageWithBundle:(NSBundle *)bundle;
@@ -16,112 +18,67 @@
 + (instancetype)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
 @end
 
-NSDictionary *dictionaryWithFile(NSString *path) {
-  if (@available(iOS 11, *)) return [NSDictionary dictionaryWithContentsOfURL:[NSURL fileURLWithPath:path] error:nil];
-  return [NSDictionary dictionaryWithContentsOfFile:path];
-}
-
-@interface SimpleBundleController : PSListController
-@end
-
-@implementation SimpleBundleController
-
-- (NSBundle *)bundle {
-  return [NSBundle bundleWithPath:[[self.specifier propertyForKey:@"pl_simpleBundlePlistPath"] stringByDeletingLastPathComponent]];
-}
-
-- (void)viewDidAppear:(BOOL)didAppear {
-  [super viewDidAppear:didAppear];
-  NSString *title = dictionaryWithFile([self.specifier propertyForKey:@"pl_simpleBundlePlistPath"])[@"title"] ? : self.specifier.name;
-  self.title = [[self bundle] localizedStringForKey:title value:title table:nil];
-}
-
-- (NSDictionary *)localizedDictionaryForDictionary:(NSDictionary *)dict {
-  NSMutableDictionary *newDict = [NSMutableDictionary new];
-	for (NSString *key in dict) {
-	   NSString *value = [dict objectForKey:key];
-		[newDict setObject:[[self bundle] localizedStringForKey:value value:value table:nil] forKey:key];
-  }
-  return newDict;
-}
-
-- (NSArray *)specifiers {
-	if (!_specifiers) {
-    NSString *plistName = [[[self.specifier propertyForKey:@"pl_simpleBundlePlistPath"] lastPathComponent] stringByDeletingPathExtension];
-    NSMutableArray *specs = [[self loadSpecifiersFromPlistName:plistName target:self] mutableCopy];
-    // TODO check iphonedevwiki ALL keys for those with string type value and add appropiate to localize ones here
-    NSArray *localizableKeys = @[@"label", @"value", @"headerDetailText", @"placeholder", @"staticTextMessage"];
-    for (PSSpecifier *specifier in specs) {
-      for (NSString *key in specifier.properties.allKeys) {
-        NSString *value = [specifier propertyForKey:key];
-        if ([localizableKeys containsObject:key]) [specifier setProperty:[[self bundle] localizedStringForKey:value value:value table:nil] forKey:key];
-      }
-      specifier.name = [specifier propertyForKey:@"label"];
-      if (specifier.titleDictionary) specifier.titleDictionary = [self localizedDictionaryForDictionary:specifier.titleDictionary];
-      if (specifier.shortTitleDictionary) specifier.shortTitleDictionary = [self localizedDictionaryForDictionary:specifier.shortTitleDictionary];
-    }
-    _specifiers = [specs copy];
-  }
-	return _specifiers;
-}
-
-@end
-
 %hook PSUIPrefsListController
 
 - (NSArray *)specifiers {
-  if (MSHookIvar<id>(self, "_specifiers") != nil) return %orig;
+  if (MSHookIvar<NSArray *>(self, "_specifiers") != nil) return %orig;
   NSMutableArray *specs = [NSMutableArray new];
   NSString *dir = @"/Library/PreferenceLoader/Preferences";
-  for (NSString *file in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
-    NSDictionary *entry;
-    // entry and items in one plist (delet urself if u do this)
-    BOOL isSimple = NO;
-    NSString *path = [dir stringByAppendingPathComponent:file];
-    BOOL isDir;
-    [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDir];
-    if (![file.pathExtension isEqualToString:@"plist"] && !isDir) continue;
-    if (isDir) {
-      for (NSString *newFile in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:nil]) {
-        if (![newFile.pathExtension isEqualToString:@"plist"]) continue;
-        NSString *newPath = [path stringByAppendingPathComponent:newFile];
-        entry = dictionaryWithFile(newPath)[@"entry"];
-        if (entry && entry.count) path = newPath;
+  NSArray *subpaths = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:dir error:nil];
+  __block NSInteger done = 0;
+
+  for (NSString *file in subpaths) {
+    // loading specifiers asynchronously seems to be faster
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+      NSDictionary *entry;
+      NSString *path = [dir stringByAppendingPathComponent:file];
+
+      if (![file.pathExtension isEqualToString:@"plist"]) {
+        done++;
+        return;
       }
-    } else entry = dictionaryWithFile(path)[@"entry"];
-    if (!entry) continue;
-    if (dictionaryWithFile(path)[@"items"]) isSimple = YES;
-    if (entry[@"pl_filter"]) {
-      NSArray *versions = [entry[@"pl_filter"] objectForKey:@"CoreFoundationVersion"];
-      BOOL pass = NO;
-      if (versions.count == 1) pass = (kCFCoreFoundationVersionNumber >= [versions[0] floatValue]);
-      else if (versions.count == 2) pass = (kCFCoreFoundationVersionNumber >= [versions[0] floatValue] && kCFCoreFoundationVersionNumber < [versions[1] floatValue]);
-      if (!pass) continue;
-    }
-    PSSpecifier *specifier = [%c(PSSpecifier) new];
-    for (NSString *key in entry.allKeys) [specifier setProperty:entry[key] forKey:key];
-    specifier.name = entry[@"label"];
-    specifier.cellType = [PSTableCell cellTypeFromString:entry[@"cell"]];
-    if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
-    if ([entry[@"cell"] isEqualToString:@"PSLinkCell"]) {
-      if (isSimple) {
-        [specifier setProperty:path forKey:@"pl_simpleBundlePlistPath"];
-        specifier.controllerLoadAction = @selector(pl_loadSimpleBundle:);
-      } else {
-        NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
-        for (NSString *baseDir in potentialDirs) {
-          NSString *bundlePath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
-          if ([[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
+      entry = [NSDictionary dictionaryWithFile:path][@"entry"];
+      if (!entry) {
+        done++;
+        return;
+      }
+      if (![PSSpecifier environmentPassesPreferenceLoaderFilter:[entry objectForKey:@"pl_filter"]]) {
+        done++;
+        return;
+      }
+
+      BOOL isSimple = NO;
+      if ([NSDictionary dictionaryWithFile:path][@"items"] || entry[@"items"]) isSimple = YES;
+      PSSpecifier *specifier = [self specifiersFromEntry:entry sourcePreferenceLoaderBundlePath:nil title:[file stringByDeletingPathExtension]][0];
+      if ([entry[@"cell"] isEqualToString:@"PSLinkCell"]) {
+        if (isSimple) {
+          [specifier setProperty:path forKey:@"pl_simpleBundlePlistPath"];
+          specifier.controllerLoadAction = @selector(pl_loadSimpleBundle:);
+        } else {
+          NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
+          for (NSString *baseDir in potentialDirs) {
+            NSString *bundlePath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) {
+              [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
+              [specifier setProperty:[NSBundle bundleWithPath:bundlePath] forKey:@"pl_bundle"];
+            }
+          }
+          specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
         }
-        specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
+        if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
       }
-    }
-    specifier.target = self;
-    MSHookIvar<SEL>(specifier, "getter") = @selector(readPreferenceValue:);
-    MSHookIvar<SEL>(specifier, "setter") = @selector(setPreferenceValue: specifier:);
-    [specifier pl_setupIcon];
-    [specs addObject:specifier];
+      [specifier setProperty:[NSBundle bundleWithPath:[path stringByDeletingLastPathComponent]] forKey:@"pl_bundle"];
+
+      specifier.target = self;
+      MSHookIvar<SEL>(specifier, "getter") = @selector(readPreferenceValue:);
+      MSHookIvar<SEL>(specifier, "setter") = @selector(setPreferenceValue: specifier:);
+      [specifier pl_setupIcon];
+      [specs addObject:specifier];
+      done++;
+    });
   }
+  while (done != subpaths.count) {}
+
   if (specs.count == 0) return %orig;
   [specs sortUsingComparator:^NSComparisonResult(PSSpecifier *a, PSSpecifier *b) {
     return [a.name localizedCaseInsensitiveCompare:b.name];
@@ -129,14 +86,15 @@ NSDictionary *dictionaryWithFile(NSString *path) {
   [specs insertObject:[%c(PSSpecifier) emptyGroupSpecifier] atIndex:0];
   NSMutableArray *mutableSpecifiers = [%orig mutableCopy];
   [mutableSpecifiers addObjectsFromArray:specs];
-  MSHookIvar<NSArray *>(self, "_specifiers") = [mutableSpecifiers copy];
+  MSHookIvar<NSArray *>(self, "_specifiers") = mutableSpecifiers;
   return MSHookIvar<NSArray *>(self, "_specifiers");
 }
 
 %new
 - (void)pl_lazyLoadBundle:(PSSpecifier *)sender {
   // manually loading the bundle for two reasons: to avoid hooking bundleWithPath: and for easier error handling
-  if ([[NSBundle bundleWithPath:[sender propertyForKey:@"lazy-bundle"]] load]) {
+  NSError *error;
+  if ([[NSBundle bundleWithPath:[sender propertyForKey:@"lazy-bundle"]] loadAndReturnError:&error]) {
     [self lazyLoadBundle:sender];
     return;
   }
@@ -145,29 +103,31 @@ NSDictionary *dictionaryWithFile(NSString *path) {
   while (![view isKindOfClass:[UITableView class]]) view = view.superview;
   UITableView *tableView = (UITableView *)view;
   [tableView deselectRowAtIndexPath:[tableView indexPathForCell:cell] animated:YES];
-  NSString *message = @"The preference bundle could not be loaded. It might be missing, outdated or corrupted. Try to contact the developer (or fix your bundle if that's you).";
+  NSString *message = @"The preference bundle could not be loaded. It might be missing, outdated or corrupted. Try to contact the developer (or fix your bundle if that's you). Error message: \n\n";
   if (@available(iOS 8, *)) {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Error" message:message preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Error" message:[message stringByAppendingString:error.description] preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
   } else {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error" message:message delegate:nil cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error" message:[message stringByAppendingString:error.description] delegate:nil cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
     [alert show];
   }
+  [self lazyLoadBundle:sender];
 }
 
 %new
 - (void)pl_loadSimpleBundle:(PSSpecifier *)sender {
   [self lazyLoadBundle:sender];
-  MSHookIvar<Class>(sender, "detailControllerClass") = [SimpleBundleController class];
+  MSHookIvar<Class>(sender, "detailControllerClass") = %c(SimpleBundleController);
 }
 
 %end
 
 %hook PSViewController
 
-- (NSString *)title {
-  return (!%orig || %orig.length == 0) ? self.specifier.name : %orig;
+- (void)viewDidAppear:(BOOL)didAppear {
+  %orig;
+  if (!self.title || self.title.length == 0) self.title = self.specifier.name;
 }
 
 %end
@@ -176,7 +136,7 @@ NSDictionary *dictionaryWithFile(NSString *path) {
 
 %new
 - (void)pl_setupIcon {
-  if (NSBundle *bundle = [NSBundle bundleWithPath:[self propertyForKey:@"lazy-bundle"]]) [self setupIconImageWithBundle:bundle];
+  if (NSBundle *bundle = [NSBundle bundleWithPath:[self propertyForKey:@"lazy-bundle"]] ? : [self propertyForKey:@"pl_bundle"]) [self setupIconImageWithBundle:bundle];
   UIImage *icon = [self propertyForKey:@"iconImage"] ? : [UIImage imageWithContentsOfFile:@"/Library/PreferenceLoader/Default.png"];
   if (!icon) return;
   UIGraphicsBeginImageContextWithOptions(CGSizeMake(29, 29), NO, [UIScreen mainScreen].scale);
@@ -193,7 +153,8 @@ NSDictionary *dictionaryWithFile(NSString *path) {
 %end
 
 %ctor {
+  dlopen("/usr/lib/libprefs.dylib", RTLD_LAZY);
   // the versions that don't have PSUIPrefsListController will hook PrefsListController instead
-  Class PrefsControllerClass = %c(PSUIPrefsListController) ? : %c(PrefsListController);
-  %init(PSUIPrefsListController = PrefsControllerClass);
+  Class prefsControllerClass = %c(PSUIPrefsListController) ? : %c(PrefsListController);
+  %init(PSUIPrefsListController = prefsControllerClass);
 }
