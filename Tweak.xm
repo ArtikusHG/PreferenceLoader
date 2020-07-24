@@ -165,14 +165,18 @@
 - (NSArray *)specifiers {
   if (MSHookIvar<NSArray *>(self, "_specifiers") != nil) return %orig;
   if (NSArray *items = [self.specifier propertyForKey:@"items"]) {
+    if (items.count == 0) return %orig;
     NSMutableArray *specs = [NSMutableArray new];
     for (NSDictionary *item in items) {
       PSSpecifier *specifier = [self specifiersFromEntry:item sourcePreferenceLoaderBundlePath:nil title:nil][0];
       [specs addObject:specifier];
     }
-    if (specs.count != 0) MSHookIvar<NSArray *>(self, "_specifiers") = specs;
+    if (specs.count != 0) {
+      MSHookIvar<NSArray *>(self, "_specifiers") = specs;
+      return MSHookIvar<NSArray *>(self, "_specifiers");
+    }
   }
-  return MSHookIvar<NSArray *>(self, "_specifiers");
+  return %orig;
 }
 
 %end
