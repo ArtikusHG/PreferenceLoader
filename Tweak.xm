@@ -47,6 +47,19 @@
         return;
       }
 
+      NSString *bundlePath;
+      if ([entry objectForKey:@"bundle"]) {
+        NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
+        for (NSString *baseDir in potentialDirs) {
+          NSString *localPath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
+          if ([[NSFileManager defaultManager] fileExistsAtPath:localPath]) bundlePath = localPath;
+        }
+        if (!bundlePath) {
+          done++;
+          return;
+        }
+      }
+
       BOOL isSimple = NO;
       if ([NSDictionary dictionaryWithFile:path][@"items"] || entry[@"items"]) isSimple = YES;
       PSSpecifier *specifier = [self specifiersFromEntry:entry sourcePreferenceLoaderBundlePath:nil title:[file stringByDeletingPathExtension]][0];
@@ -54,18 +67,12 @@
         if (isSimple) {
           [specifier setProperty:path forKey:@"pl_simpleBundlePlistPath"];
           specifier.controllerLoadAction = @selector(pl_loadSimpleBundle:);
-        } else {
-          NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
-          for (NSString *baseDir in potentialDirs) {
-            NSString *bundlePath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
-            if ([[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) {
-              [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
-              [specifier setProperty:[NSBundle bundleWithPath:bundlePath] forKey:@"pl_bundle"];
-            }
-          }
+        } else if (bundlePath) {
+          [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
+          [specifier setProperty:[NSBundle bundleWithPath:bundlePath] forKey:@"pl_bundle"];
           specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
         }
-        if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
+        //if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
       }
       [specifier setProperty:[NSBundle bundleWithPath:[path stringByDeletingLastPathComponent]] forKey:@"pl_bundle"];
 
