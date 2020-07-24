@@ -130,15 +130,6 @@
 
 %end
 
-%hook PSViewController
-
-- (void)viewDidAppear:(BOOL)didAppear {
-  %orig;
-  if (!self.title || self.title.length == 0) self.title = self.specifier.name;
-}
-
-%end
-
 %hook PSSpecifier
 
 %new
@@ -155,6 +146,33 @@
   icon = UIGraphicsGetImageFromCurrentImageContext();
   UIGraphicsEndImageContext();
   [self setProperty:icon forKey:@"iconImage"];
+}
+
+%end
+
+%hook PSViewController
+
+- (void)viewDidAppear:(BOOL)didAppear {
+  %orig;
+  if (!self.title || self.title.length == 0) self.title = self.specifier.name;
+}
+
+%end
+
+// loading specifiers from the items of a PSSpecifier for PSListController (again. WHO THE SHIT DOES THAT?????)
+%hook PSListController
+
+- (NSArray *)specifiers {
+  if (MSHookIvar<NSArray *>(self, "_specifiers") != nil) return %orig;
+  if (NSArray *items = [self.specifier propertyForKey:@"items"]) {
+    NSMutableArray *specs = [NSMutableArray new];
+    for (NSDictionary *item in items) {
+      PSSpecifier *specifier = [self specifiersFromEntry:item sourcePreferenceLoaderBundlePath:nil title:nil][0];
+      [specs addObject:specifier];
+    }
+    if (specs.count != 0) MSHookIvar<NSArray *>(self, "_specifiers") = specs;
+  }
+  return MSHookIvar<NSArray *>(self, "_specifiers");
 }
 
 %end

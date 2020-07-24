@@ -86,7 +86,7 @@ extern "C" NSArray *SpecifiersFromPlist(NSDictionary *plist, PSSpecifier *previo
     if (NSArray *items = [[NSDictionary dictionaryWithFile:plistPath] objectForKey:@"entry"][@"items"]) {
       specs = [NSMutableArray new];
       for (NSDictionary *item in items) {
-        PSSpecifier *specifier = [(PSListController *)self specifiersFromEntry:item sourcePreferenceLoaderBundlePath:nil title:nil][0];
+        PSSpecifier *specifier = [self specifiersFromEntry:item sourcePreferenceLoaderBundlePath:nil title:nil][0];
         [specs addObject:specifier];
       }
     }
