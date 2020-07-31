@@ -22,7 +22,7 @@ This is a PreferenceLoader alternative I started off for fun and knowledge, but 
 
 - Provides more elegant error handling, with an alert displayed instead of a bundle with the error text
 
-- Almost three times smaller than the original (199 lines vs. 549)
+- Almost ~~three~~ two times smaller than the original (~~199~~ 300 lines vs. 549)
 
 - Only supports versions starting from iOS 7 (should mostly work on lower ones, but I didn't test that), which lets the project focus on more modern versions instead of keeping lots of legacy code for iOS 3.2
 
