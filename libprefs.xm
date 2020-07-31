@@ -54,6 +54,19 @@ extern "C" NSArray *SpecifiersFromPlist(NSDictionary *plist, PSSpecifier *previo
 	return specs;
 }
 
+- (PSViewController *)controllerForSpecifier:(PSSpecifier *)specifier {
+	Class detailClass = [specifier detailControllerClass];
+	if (!detailClass) detailClass = [SimpleBundleController class];
+	if (![detailClass isSubclassOfClass:[PSViewController class]]) return nil;
+	id result = [detailClass alloc];
+	if ([result respondsToSelector:@selector(initForContentSize:)]) result = [result initForContentSize:self.view.bounds.size];
+	else result = [result init];
+	[result setRootController:self.rootController];
+	[result setParentController:self];
+	[result setSpecifier:specifier];
+	return result;
+}
+
 @end
 
 @implementation SimpleBundleController

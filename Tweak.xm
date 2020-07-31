@@ -25,66 +25,48 @@
   NSMutableArray *specs = [NSMutableArray new];
   NSString *dir = @"/Library/PreferenceLoader/Preferences";
   NSArray *subpaths = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:dir error:nil];
-  __block NSInteger done = 0;
 
   for (NSString *file in subpaths) {
-    // loading specifiers asynchronously seems to be faster
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-      NSDictionary *entry;
-      NSString *path = [dir stringByAppendingPathComponent:file];
+    NSDictionary *entry;
+    NSString *path = [dir stringByAppendingPathComponent:file];
+    if (![file.pathExtension isEqualToString:@"plist"]) continue;
 
-      if (![file.pathExtension isEqualToString:@"plist"]) {
-        done++;
-        return;
-      }
-      entry = [NSDictionary dictionaryWithFile:path][@"entry"];
-      if (!entry) {
-        done++;
-        return;
-      }
-      if (![PSSpecifier environmentPassesPreferenceLoaderFilter:[entry objectForKey:@"pl_filter"]]) {
-        done++;
-        return;
-      }
+    entry = [NSDictionary dictionaryWithFile:path][@"entry"];
+    if (!entry) continue;
+    if (![PSSpecifier environmentPassesPreferenceLoaderFilter:[entry objectForKey:@"pl_filter"]]) continue;
 
-      NSString *bundlePath;
-      if ([entry objectForKey:@"bundle"]) {
-        NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
-        for (NSString *baseDir in potentialDirs) {
-          NSString *localPath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
-          if ([[NSFileManager defaultManager] fileExistsAtPath:localPath]) bundlePath = localPath;
-        }
-        if (!bundlePath) {
-          done++;
-          return;
-        }
+    NSString *bundlePath;
+    if ([entry objectForKey:@"bundle"]) {
+      NSArray *potentialDirs = @[@"/Library/PreferenceBundles", @"/System/Library/PreferenceBundles"];
+      for (NSString *baseDir in potentialDirs) {
+        NSString *localPath = [NSString stringWithFormat:@"%@/%@.bundle", baseDir, entry[@"bundle"]];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:localPath]) bundlePath = localPath;
       }
+      if (!bundlePath) continue;
+    }
 
-      BOOL isSimple = NO;
-      if ([NSDictionary dictionaryWithFile:path][@"items"] || entry[@"items"]) isSimple = YES;
-      PSSpecifier *specifier = [self specifiersFromEntry:entry sourcePreferenceLoaderBundlePath:nil title:[file stringByDeletingPathExtension]][0];
-      if ([entry[@"cell"] isEqualToString:@"PSLinkCell"]) {
-        if (isSimple) {
-          [specifier setProperty:path forKey:@"pl_simpleBundlePlistPath"];
-          specifier.controllerLoadAction = @selector(pl_loadSimpleBundle:);
-        } else if (bundlePath) {
-          [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
-          [specifier setProperty:[NSBundle bundleWithPath:bundlePath] forKey:@"pl_bundle"];
-          specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
-        }
-        //if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
+    BOOL isSimple = NO;
+    if ([NSDictionary dictionaryWithFile:path][@"items"] || entry[@"items"]) isSimple = YES;
+    PSSpecifier *specifier = [self specifiersFromEntry:entry sourcePreferenceLoaderBundlePath:nil title:[file stringByDeletingPathExtension]][0];
+    if ([entry[@"cell"] isEqualToString:@"PSLinkCell"]) {
+      if (isSimple) {
+        [specifier setProperty:path forKey:@"pl_simpleBundlePlistPath"];
+        specifier.controllerLoadAction = @selector(pl_loadSimpleBundle:);
+      } else if (bundlePath) {
+        [specifier setProperty:bundlePath forKey:@"lazy-bundle"];
+        [specifier setProperty:[NSBundle bundleWithPath:bundlePath] forKey:@"pl_bundle"];
+        specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
       }
-      [specifier setProperty:[NSBundle bundleWithPath:[path stringByDeletingLastPathComponent]] forKey:@"pl_bundle"];
+      //if (![specifier propertyForKey:@"lazy-bundle"]) [specifier setProperty:[path stringByDeletingLastPathComponent] forKey:@"lazy-bundle"];
+    }
+    [specifier setProperty:[NSBundle bundleWithPath:[path stringByDeletingLastPathComponent]] forKey:@"pl_bundle"];
 
-      specifier.target = self;
-      MSHookIvar<SEL>(specifier, "getter") = @selector(readPreferenceValue:);
-      MSHookIvar<SEL>(specifier, "setter") = @selector(setPreferenceValue: specifier:);
-      [specifier pl_setupIcon];
-      [specs addObject:specifier];
-      done++;
-    });
+    specifier.target = self;
+    MSHookIvar<SEL>(specifier, "getter") = @selector(readPreferenceValue:);
+    MSHookIvar<SEL>(specifier, "setter") = @selector(setPreferenceValue: specifier:);
+    [specifier pl_setupIcon];
+    [specs addObject:specifier];
   }
-  while (done != subpaths.count) {}
 
   if (specs.count == 0) return %orig;
   [specs sortUsingComparator:^NSComparisonResult(PSSpecifier *a, PSSpecifier *b) {

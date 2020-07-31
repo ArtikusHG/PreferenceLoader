@@ -1,7 +1,7 @@
 Package: com.artikus.preferenceloader
 Name: PreferenceLoader
 Depends: mobilesubstrate
-Version: 1.0.8
+Version: 1.0.9
 Architecture: iphoneos-arm
 Description: A lightweight and modern alternative to Dustin Howett's PreferenceLoader.
 Maintainer: ArtikusHG
