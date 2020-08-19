@@ -1,3 +1,5 @@
+#include <Preferences/PSListController.h>
+
 extern NSString *const PLFilterKey;
 
 @interface NSDictionary (libprefs)
@@ -13,5 +15,8 @@ extern NSString *const PLFilterKey;
 - (NSArray *)specifiersFromEntry:(NSDictionary *)entry sourcePreferenceLoaderBundlePath:(NSString *)sourceBundlePath title:(NSString *)title;
 @end
 
-@interface SimpleBundleController : PSListController
+@interface PLCustomListController: PSListController
+@end
+
+@interface PLLocalizedListController: PLCustomListController
 @end
