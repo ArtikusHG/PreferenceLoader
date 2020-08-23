@@ -1,3 +1,5 @@
+## Before you complain about indentation: it *is* broken. Atom editor is very weird with this stuff. One day I'll redo it by hand, but not now.
+
 # PreferenceLoader
 
 This is a PreferenceLoader alternative I started off for fun and knowledge, but soon ended up making it into a finished tweak. When I was starting this, I didn't really have any complains about Dustin Howett's tweak, but now I actually have a few:
