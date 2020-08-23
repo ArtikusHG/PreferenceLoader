@@ -24,8 +24,8 @@ NSString *const PLFilterKey = @"pl_filter";
 - (NSDictionary *)localizedDictionaryForDictionary:(NSDictionary *)dict {
   NSMutableDictionary *newDict = [NSMutableDictionary new];
 	for (NSString *key in dict) {
-	   NSString *value = [dict objectForKey:key];
-		[newDict setObject:[self.bundle localizedStringForKey:value value:value table:nil] forKey:key];
+    NSString *value = [dict objectForKey:key];
+    [newDict setObject:[self.bundle localizedStringForKey:value value:value table:nil] forKey:key];
   }
   return newDict;
 }

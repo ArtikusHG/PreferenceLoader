@@ -32,12 +32,15 @@
       NSBundle *mobileIconsBundle = [NSBundle bundleWithIdentifier:@"com.apple.mobileicons.framework"];
       UIImage *mask = [UIImage imageNamed:@"TableIconMask" inBundle:mobileIconsBundle];
       if (mask) CGContextClipToMask(UIGraphicsGetCurrentContext(), iconRect, mask.CGImage);
+      //[[UIColor whiteColor] setFill];
+      //UIRectFill(iconRect);
       [icon drawInRect:iconRect];
       icon = UIGraphicsGetImageFromCurrentImageContext();
       UIGraphicsEndImageContext();
       [specifier setProperty:icon forKey:@"iconImage"];
     }
-    [specs addObject:specifier];
+    // to prevent crashes check this thing
+    if (specifier) [specs addObject:specifier];
   }
 
   if (specs.count == 0) return %orig;

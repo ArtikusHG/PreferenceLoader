@@ -1,11 +1,11 @@
-#DEBUG = 0
-#FINALPACKAGE = 1
+DEBUG = 0
+FINALPACKAGE = 1
 
 INSTALL_TARGET_PROCESSES = Preferences
 
-#ARCHS = armv7 arm64 arm64e
-ARCHS = arm64
-THEOS_DEVICE_IP = 192.168.0.18
+ARCHS = armv7 arm64 arm64e
+#ARCHS = arm64
+THEOS_DEVICE_IP = 192.168.0.34
 
 TARGET = iphone:clang:latest:7.0
 
@@ -18,7 +18,7 @@ libprefs_FRAMEWORKS = UIKit
 libprefs_PRIVATE_FRAMEWORKS = Preferences
 libprefs_COMPATIBILITY_VERSION = 2.2.0
 libprefs_LIBRARY_VERSION = $(shell echo "$(THEOS_PACKAGE_BASE_VERSION)" | cut -d'~' -f1)
-libprefs_LDFLAGS  = -compatibility_version $($(THEOS_CURRENT_INSTANCE)_COMPATIBILITY_VERSION)
+libprefs_LDFLAGS = -compatibility_version $($(THEOS_CURRENT_INSTANCE)_COMPATIBILITY_VERSION)
 libprefs_LDFLAGS += -current_version $($(THEOS_CURRENT_INSTANCE)_LIBRARY_VERSION)
 
 TWEAK_NAME = PreferenceLoader
