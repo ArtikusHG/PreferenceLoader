@@ -62,7 +62,6 @@
 - (NSArray *)specifiers {
   if (MSHookIvar<NSArray *>(self, "_specifiers")) return %orig;
   if (NSArray *items = [self.specifier propertyForKey:@"items"]) {
-    exit(0);
     if (items.count == 0) return %orig;
     NSMutableArray *specs = [NSMutableArray new];
     for (NSDictionary *item in items) {

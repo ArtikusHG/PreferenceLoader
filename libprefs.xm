@@ -113,7 +113,8 @@ NSString *const PLFilterKey = @"pl_filter";
     if (entry[@"bundle"] && [[entry objectForKey:@"isController"] boolValue]) {
       [specifier setProperty:bundle.bundlePath forKey:@"lazy-bundle"];
       specifier.controllerLoadAction = @selector(pl_lazyLoadBundle:);
-    } else {
+      // without this check it would set it to PLCustomListController or PLLocalizedListController for example if it was PSListItemController :c
+    } else if (!specifier.detailControllerClass) {
       // yes, the title. the title is the *fallback* title, and the fallback title is what? bravo, the plist filename! (w/o the extension)
       [specifier setProperty:title forKey:@"pl_alt_plist_name"];
       specifier.detailControllerClass = [sourceBundlePath.lastPathComponent isEqualToString:@"Preferences"] ? [PLCustomListController class] : [PLLocalizedListController class];
