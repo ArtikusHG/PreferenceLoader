@@ -1,4 +1,5 @@
 #include <Preferences/PSSpecifier.h>
+#include <dlfcn.h>
 #include "prefs.h"
 
 @interface UIImage (Private)
@@ -56,11 +57,12 @@
 
 %end
 
-// loading specifiers from the items of a PSSpecifier for PSListController (again, WHO THE SHIT DOES THAT?????)
+// loading specifiers from the items of a PSSpecifier for PSListController
 %hook PSListController
 
 - (NSArray *)specifiers {
   if (MSHookIvar<NSArray *>(self, "_specifiers")) return %orig;
+
   if (NSArray *items = [self.specifier propertyForKey:@"items"]) {
     if (items.count == 0) return %orig;
     NSMutableArray *specs = [NSMutableArray new];
