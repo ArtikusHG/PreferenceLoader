@@ -12,9 +12,7 @@ Complaints about the original:
 
 - At the moment of making this, the original PreferenceLoader had no error handling. It would just say there was an error, and provide zero details about what exactly happened. By now this has been fixed, but it was still one of the motives for me to write this.
 
-- Not processing icons: while this is supposed to be something that the developers should take care of, many actually don't, and the icons may be oversized, unmasked (not to mention different iOS versions have different masks), and sometimes even missing. This version takes care of all that, resizing and masking the icons to match the system's standarts, as well as adding a default icon for those preference bundles that don't have one.
-
-- Not taking advantage of multithreading: to make the Settings app launch faster, this version only loads the preference entries alone on launch, and then proceeds to load the icons on a background thread.
+- Not processing icons: while this is supposed to be something that the developers should take care of, many actually don't, and the icons may be oversized, unmasked (not to mention different iOS versions have different masks), and sometimes even missing. This version takes care of all that, resizing and masking the icons to match the system's standards, as well as adding a default icon for those preference bundles that don't have one.
 
 ***
 

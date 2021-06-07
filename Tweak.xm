@@ -8,39 +8,32 @@
 
 %hook PSUIPrefsListController
 
-// ok, gonna comment so me from the future doesn't get lost in this :c
 - (NSArray *)specifiers {
-  // otherwise, it crashes. this is the very first invoke of _specifiers.
+  // if the ivar has *not* already been loaded, do hax. if it has, no need for doing hax
   if (MSHookIvar<NSArray *>(self, "_specifiers")) return %orig;
 
   NSMutableArray *specs = [NSMutableArray new];
-  NSString *dir = @"/Library/PreferenceLoader/Preferences";
-  // subpathsOfDirectory, unlike contentsOfDirectory, is recursive. commenting this cuz i got confused why this was used in the original and made a ton of костыли
-  for (NSString *file in [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:dir error:nil]) {
+  // subpathsOfDirectory, unlike contentsOfDirectory, is recursive, and we need this for plists in folders
+  for (NSString *file in [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:@"/Library/PreferenceLoader/Preferences" error:nil]) {
     if (![file.pathExtension isEqualToString:@"plist"]) continue;
 
-    NSDictionary *entry;
-    NSString *path = [dir stringByAppendingPathComponent:file];
-    entry = [NSDictionary dictionaryWithFile:path][@"entry"];
-    if (!entry) continue;
-    if (![PSSpecifier environmentPassesPreferenceLoaderFilter:[entry objectForKey:@"pl_filter"]]) continue;
+    NSString *path = [@"/Library/PreferenceLoader/Preferences" stringByAppendingPathComponent:file];
+    NSDictionary *entry = [NSDictionary dictionaryWithFile:path][@"entry"];
+    if (!entry || ![PSSpecifier environmentPassesPreferenceLoaderFilter:[entry objectForKey:@"pl_filter"]]) continue;
 
     PSSpecifier *specifier = [self specifiersFromEntry:entry sourcePreferenceLoaderBundlePath:path.stringByDeletingLastPathComponent title:file.lastPathComponent.stringByDeletingPathExtension][0];
     UIImage *icon = [specifier propertyForKey:@"iconImage"] ? : [UIImage imageWithContentsOfFile:@"/Library/PreferenceLoader/Default.png"];
     if (icon) {
       UIGraphicsBeginImageContextWithOptions(CGSizeMake(29, 29), NO, [UIScreen mainScreen].scale);
       CGRect iconRect = CGRectMake(0, 0, 29, 29);
-      NSBundle *mobileIconsBundle = [NSBundle bundleWithIdentifier:@"com.apple.mobileicons.framework"];
-      UIImage *mask = [UIImage imageNamed:@"TableIconMask" inBundle:mobileIconsBundle];
+      UIImage *mask = [UIImage imageNamed:@"TableIconMask" inBundle:[NSBundle bundleWithIdentifier:@"com.apple.mobileicons.framework"]];
       if (mask) CGContextClipToMask(UIGraphicsGetCurrentContext(), iconRect, mask.CGImage);
-      //[[UIColor whiteColor] setFill];
-      //UIRectFill(iconRect);
       [icon drawInRect:iconRect];
       icon = UIGraphicsGetImageFromCurrentImageContext();
       UIGraphicsEndImageContext();
       [specifier setProperty:icon forKey:@"iconImage"];
     }
-    // to prevent crashes check this thing
+    // to prevent crashes. DO NOT remove check.
     if (specifier) [specs addObject:specifier];
   }
 
@@ -52,7 +45,7 @@
   NSMutableArray *mutableSpecifiers = [%orig mutableCopy];
   [mutableSpecifiers addObjectsFromArray:specs];
   MSHookIvar<NSArray *>(self, "_specifiers") = mutableSpecifiers;
-  return MSHookIvar<NSArray *>(self, "_specifiers");
+  return mutableSpecifiers;
 }
 
 %end
@@ -62,7 +55,6 @@
 
 - (NSArray *)specifiers {
   if (MSHookIvar<NSArray *>(self, "_specifiers")) return %orig;
-
   if (NSArray *items = [self.specifier propertyForKey:@"items"]) {
     if (items.count == 0) return %orig;
     NSMutableArray *specs = [NSMutableArray new];
@@ -72,7 +64,7 @@
     }
     if (specs.count != 0) {
       MSHookIvar<NSArray *>(self, "_specifiers") = specs;
-      return MSHookIvar<NSArray *>(self, "_specifiers");
+      return specs;
     }
   }
   return %orig;
