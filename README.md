@@ -2,31 +2,19 @@
 
 # PreferenceLoader
 
-This is a PreferenceLoader alternative I started off for fun and knowledge, but soon ended up making it into a finished tweak. When I was starting this, I didn't really have any complains about Dustin Howett's tweak, but now I actually have a few:
+This is a modern lightweight alternative to Dustin Howett's PreferenceLoader. I started this because I was bored, but it later turned out there was *a lot* of stuff from the original that could be improved.
 
-- **A lot** of unnecessary hooking, such as the ```[NSBundle bundleWithPath:]``` hook, ```- (void)lazyLoadBundle:``` hook, hooks for iOS versions lower than 6 which are barely used now, etc.
+Complaints about the original:
 
-- Lack of source code for the latest version: the one available on BigBoss is 2.2.4, while the one on GitHub is still 2.2.0, not even updated for iOS >= 9.
+- **A lot** of unnecessary hooking, such as the ```[NSBundle bundleWithPath:]``` hook, ```- (void)lazyLoadBundle:``` hook, etc.
 
-- It doesn't mask icons. Yes, this is not something it's supposed to provide, but it's really a pain to mask all these images manually :/. And keep in mind, the masks change almost every update...
+- Way too cluttered with legacy code: it supports iOS 3 and armv6. While this is not necessarily a bad thing, 99% of users won't ever need the iOS 3 support.
 
-- It doesn't have a default (blank) icon to be shown for bundles without one, therefore breaking the layout and aesthetic of the Settings app in such cases.
+- At the moment of making this, the original PreferenceLoader had no error handling. It would just say there was an error, and provide zero details about what exactly happened. By now this has been fixed, but it was still one of the motives for me to write this.
 
-***
+- Not processing icons: while this is supposed to be something that the developers should take care of, many actually don't, and the icons may be oversized, unmasked (not to mention different iOS versions have different masks), and sometimes even missing. This version takes care of all that, resizing and masking the icons to match the system's standarts, as well as adding a default icon for those preference bundles that don't have one.
 
-# How is this project different
-
-- Barely hooks anything besides ```- (NSArray *)specifiers```
-
-- Provides source code that will be kept maintained unless the project dies out
-
-- Masks icons and has a default icon for bundles which don't provide one (btw, icon made by [@Xeviks](https://twitter.com/Xeviks))
-
-- Provides more elegant error handling, with an alert displayed instead of a bundle with the error text
-
-- Almost ~~three~~ two times smaller than the original (~~199~~ ~~300~~ 226 lines vs. 549)
-
-- Only supports versions starting from iOS 7 (should mostly work on lower ones, but I didn't test that), which lets the project focus on more modern versions instead of keeping lots of legacy code for iOS 3.2
+- Not taking advantage of multithreading: to make the Settings app launch faster, this version only loads the preference entries alone on launch, and then proceeds to load the icons on a background thread.
 
 ***
 
